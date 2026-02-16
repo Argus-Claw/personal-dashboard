@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import hashlib
+import time
 from datetime import datetime, timedelta
 import requests
 import json
@@ -13,28 +15,65 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Simple password protection (optional)
+# Password protection with rate limiting and hashing
 def check_password():
+    # Rate limiting setup
+    if "failed_attempts" not in st.session_state:
+        st.session_state["failed_attempts"] = 0
+        st.session_state["lockout_until"] = 0
+    
+    # Check lockout
+    if time.time() < st.session_state["lockout_until"]:
+        st.error("🔒 Too many failed attempts. Try again in 5 minutes.")
+        st.stop()
+    
     def password_entered():
-        if st.session_state["password"] == st.secrets.get("APP_PASSWORD", "admin"):
+        entered = st.session_state["password"]
+        entered_hash = hashlib.sha256(entered.encode()).hexdigest()
+        
+        # Get hashed password from secrets
+        correct_hash = st.secrets.get("APP_PASSWORD_HASH")
+        
+        if correct_hash is None:
+            st.error("⚠️ APP_PASSWORD_HASH not configured in secrets!")
+            st.session_state["password_correct"] = False
+            return
+        
+        if entered_hash == correct_hash:
             st.session_state["password_correct"] = True
+            st.session_state["failed_attempts"] = 0
+            st.session_state["login_time"] = time.time()
             del st.session_state["password"]
         else:
             st.session_state["password_correct"] = False
-
+            st.session_state["failed_attempts"] += 1
+            
+            # Lockout after 5 failed attempts
+            if st.session_state["failed_attempts"] >= 5:
+                st.session_state["lockout_until"] = time.time() + 300  # 5 min
+    
+    # Session timeout (30 minutes)
+    if "login_time" in st.session_state:
+        if time.time() - st.session_state["login_time"] > 1800:
+            st.session_state.clear()
+            st.rerun()
+    
     if "password_correct" not in st.session_state:
-        st.text_input("Enter password", type="password", on_change=password_entered, key="password")
+        st.text_input("Enter password", type="password", 
+                     on_change=password_entered, key="password")
         return False
     elif not st.session_state["password_correct"]:
-        st.text_input("Enter password", type="password", on_change=password_entered, key="password")
-        st.error("😕 Password incorrect")
+        st.text_input("Enter password", type="password", 
+                     on_change=password_entered, key="password")
+        attempts = st.session_state.get("failed_attempts", 0)
+        st.error(f"😕 Password incorrect ({attempts}/5)")
         return False
     else:
         return True
 
-# Uncomment to enable auth
-# if not check_password():
-#     st.stop()
+# Enable auth before deployment
+if not check_password():
+    st.stop()
 
 # Header
 st.title("👁️ Personal Dashboard")
@@ -48,9 +87,7 @@ col1, col2, col3 = st.columns(3)
 with col1:
     st.subheader("💪 Recovery")
     
-    # Placeholder - would integrate with Whoop API
-    whoop_placeholder = st.container()
-    with whoop_placeholder:
+    with st.container():
         st.metric("Recovery Score", "78%", "+5%")
         st.metric("Sleep", "7h 23m", "+32m")
         st.metric("HRV", "142 ms", "+8 ms")
@@ -60,7 +97,6 @@ with col1:
 with col2:
     st.subheader("📈 Portfolio")
     
-    # HOOD placeholder
     st.metric("HOOD", "$18.42", "-2.3%", delta_color="inverse")
     st.metric("YTD", "-34%", "📉", delta_color="off")
     st.caption("*Add more tickers in config*")
@@ -69,7 +105,6 @@ with col2:
 with col3:
     st.subheader("🌤️ Today")
     
-    # Weather placeholder
     st.metric("New York", "42°F", "☁️ Cloudy")
     st.metric("High/Low", "48° / 38°", "")
     
@@ -136,3 +171,9 @@ st.markdown("---")
 
 # Footer
 st.caption("👁️ Argus Dashboard — Built with Streamlit")
+
+# Password hash generator helper (commented out)
+# Uncomment and run locally to generate hash for secrets
+# import hashlib
+# password = "your-secure-password"
+# print(hashlib.sha256(password.encode()).hexdigest())
