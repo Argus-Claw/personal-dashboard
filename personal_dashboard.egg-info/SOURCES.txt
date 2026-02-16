@@ -1,0 +1,7 @@
+README.md
+pyproject.toml
+personal_dashboard.egg-info/PKG-INFO
+personal_dashboard.egg-info/SOURCES.txt
+personal_dashboard.egg-info/dependency_links.txt
+personal_dashboard.egg-info/requires.txt
+personal_dashboard.egg-info/top_level.txt
