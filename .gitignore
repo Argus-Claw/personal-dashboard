@@ -1,0 +1,22 @@
+.env
+.env.local
+*.log
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+.vscode/
+.idea/
+
+# Data files
+data/*.db
+data/*.sqlite
+*.db
+*.sqlite
+
+# Secrets (already covered by .streamlit/.gitignore, but belt-and-suspenders)
+.streamlit/secrets.toml
+secrets.toml
+
+# OS files
+Thumbs.db
